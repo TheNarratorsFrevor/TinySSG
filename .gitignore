@@ -30,8 +30,9 @@
 *.dylib
 
 # Executables
-*.exe
 tinyssg
+
+*.exe
 *.out
 *.app
 *.i*86
