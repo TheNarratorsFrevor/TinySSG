@@ -1,3 +1,4 @@
+
 # Prerequisites
 *.d
 
@@ -30,6 +31,7 @@
 
 # Executables
 *.exe
+tinyssg
 *.out
 *.app
 *.i*86
