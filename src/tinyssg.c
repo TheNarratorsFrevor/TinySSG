@@ -1,16 +1,6 @@
 // tinyssg.c - brutal minimal static site generator in C w/ md4c-html
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <errno.h>
-
-#include "md4c.h"
-#include "md4c-html.h"
-
+// <-- BEGIN OF CONFIGURATION -->
 #define MAX_PATH 1024
 #define MAX_BUFFER 4096
 #define MAX_EXT 10
@@ -22,6 +12,18 @@
 #define INDEX_FILE "index.html"
 #define TEMPLATE_FILE "template.html"
 #define ROOTURL "http://localhost:8000"
+// <-- END OF CONFIGURATION -->
+// May god have mercy on your soul if you touch anything below this line.
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+
+#include "md4c.h"
+#include "md4c-html.h"
 
 typedef struct
 {
@@ -39,13 +41,14 @@ typedef struct
     char ext[MAX_EXT];
 } File;
 
+// FIXME: this is bad, there are libs that do this kind of thing.
 typedef struct Directory
 {
     char path[MAX_PATH];
     char name[MAX_PATH];
     File *files;
-    size_t file_count;
     size_t file_capacity;
+    size_t file_count;  
     struct Directory *next;
     struct Directory *prev;
 } Directory;
@@ -113,6 +116,7 @@ int create_directory(const char *path)
 
 int copy_file(const char *src, const char *dest)
 {
+    // TODO: there are a lot of things that can go wrong here, like src not existing, dest being a directory, etc. fix maybe?
     if (!src || !dest)
         return EINVAL;
     if (access(src, F_OK) != 0)
@@ -140,13 +144,13 @@ int copy_file(const char *src, const char *dest)
     fclose(fout);
     return 0;
 }
-
+// what the actual fuck is this buffer? this could've been an array???
 typedef struct
 {
     char *buf;
     size_t len;
 } Buffer;
-
+ 
 void cb(const MD_CHAR *text, MD_SIZE size, void *userdata)
 {
     Buffer *b = (Buffer *)userdata;
