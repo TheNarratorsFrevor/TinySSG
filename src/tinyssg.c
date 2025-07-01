@@ -21,21 +21,26 @@
 #define OUTPUT_DIR "output"
 #define INDEX_FILE "index.html"
 #define TEMPLATE_FILE "template.html"
+#define ROOTURL "http://localhost:8000"
 
-typedef struct {
+typedef struct
+{
     char input_dir[MAX_PATH];
     char output_dir[MAX_PATH];
     char index_file[MAX_PATH];
     char template_file[MAX_PATH];
+    char root_url[MAX_PATH];
 } Config;
 
-typedef struct {
+typedef struct
+{
     char path[MAX_PATH];
     char name[MAX_PATH];
     char ext[MAX_EXT];
 } File;
 
-typedef struct Directory {
+typedef struct Directory
+{
     char path[MAX_PATH];
     char name[MAX_PATH];
     File *files;
@@ -49,14 +54,37 @@ Config config = {
     .input_dir = INPUT_DIR,
     .output_dir = OUTPUT_DIR,
     .index_file = INDEX_FILE,
-    .template_file = TEMPLATE_FILE
-};
+    .template_file = TEMPLATE_FILE,
+    .root_url = ROOTURL};
 
-int mkdir_p(const char *path) {
+typedef struct page
+
+{                                 /* holds metadata for one page, it can be a blog post or a simple webpage */
+    char title[MAX_BUFFER];       // title of the page
+    char description[MAX_BUFFER]; // description for SEO
+    char author[MAX_BUFFER];      // author of the page
+    char date[MAX_BUFFER];        // date of creation or publication
+    char tags[MAX_BUFFER];        // comma-separated tags for the page
+    char path[MAX_PATH];          // path to the markdown file
+    char html_path[MAX_PATH];     // path to the generated HTML file
+} Page;
+
+typedef struct pages
+{
+    /* holds an array of pages, used to store multiple pages, mainly for creating a {{ Posts }} html tag. */
+    Page *items;     // array of pages
+    size_t count;    // number of pages
+    size_t capacity; // allocated capacity
+} Pages;
+
+int mkdir_p(const char *path)
+{
     char tmp[MAX_PATH];
     snprintf(tmp, sizeof(tmp), "%s", path);
-    for (char *p = tmp + 1; *p; p++) {
-        if (*p == '/') {
+    for (char *p = tmp + 1; *p; p++)
+    {
+        if (*p == '/')
+        {
             *p = '\0';
             mkdir(tmp, 0755);
             *p = '/';
@@ -65,31 +93,40 @@ int mkdir_p(const char *path) {
     return mkdir(tmp, 0755);
 }
 
-int create_directory(const char *path) {
-    if (!path || strlen(path) == 0) {
+int create_directory(const char *path)
+{
+    if (!path || strlen(path) == 0)
+    {
         fprintf(stderr, "error: invalid path\n");
         return EINVAL;
     }
     struct stat st = {0};
-    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) return 0;
-    if (mkdir(path, 0755) != 0) {
+    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+        return 0;
+    if (mkdir(path, 0755) != 0)
+    {
         perror("mkdir");
         return errno;
     }
     return 0;
 }
 
-int copy_file(const char *src, const char *dest) {
-    if (!src || !dest) return EINVAL;
-    if (access(src, F_OK) != 0) {
+int copy_file(const char *src, const char *dest)
+{
+    if (!src || !dest)
+        return EINVAL;
+    if (access(src, F_OK) != 0)
+    {
         fprintf(stderr, "error: file not found: %s\n", src);
         return ENOENT;
     }
 
     FILE *fin = fopen(src, "rb");
-    if (!fin) return errno;
+    if (!fin)
+        return errno;
     FILE *fout = fopen(dest, "wb");
-    if (!fout) {
+    if (!fout)
+    {
         fclose(fin);
         return errno;
     }
@@ -104,17 +141,20 @@ int copy_file(const char *src, const char *dest) {
     return 0;
 }
 
-typedef struct {
+typedef struct
+{
     char *buf;
     size_t len;
 } Buffer;
 
-void cb(const MD_CHAR *text, MD_SIZE size, void *userdata) {
+void cb(const MD_CHAR *text, MD_SIZE size, void *userdata)
+{
     Buffer *b = (Buffer *)userdata;
     size_t old_len = b->len;
     b->len += size;
     char *tmp = realloc(b->buf, b->len + 1);
-    if (!tmp) {
+    if (!tmp)
+    {
         free(b->buf);
         b->buf = NULL;
         b->len = 0;
@@ -125,19 +165,23 @@ void cb(const MD_CHAR *text, MD_SIZE size, void *userdata) {
     b->buf[b->len] = '\0';
 }
 
-char *md_to_html(const char *md, size_t len) {
+char *md_to_html(const char *md, size_t len)
+{
     Buffer buf = {NULL, 0};
     int ret = md_html(md, len, cb, &buf, MD_DIALECT_COMMONMARK, 0);
-    if (ret != 0) {
+    if (ret != 0)
+    {
         free(buf.buf);
         return NULL;
     }
     return buf.buf;
 }
 
-int convert_md_to_html(const char *md_path, const char *html_path) {
+int convert_md_to_html(const char *md_path, const char *html_path)
+{
     FILE *f = fopen(md_path, "rb");
-    if (!f) {
+    if (!f)
+    {
         perror("fopen md_path");
         return -1;
     }
@@ -146,7 +190,8 @@ int convert_md_to_html(const char *md_path, const char *html_path) {
     fseek(f, 0, SEEK_SET);
 
     char *md = malloc(len + 1);
-    if (!md) {
+    if (!md)
+    {
         fclose(f);
         fprintf(stderr, "malloc failed\n");
         return -1;
@@ -158,13 +203,15 @@ int convert_md_to_html(const char *md_path, const char *html_path) {
     char *html = md_to_html(md, len);
     free(md);
 
-    if (!html) {
+    if (!html)
+    {
         fprintf(stderr, "md4c conversion failed\n");
         return -1;
     }
 
     FILE *fo = fopen(html_path, "w");
-    if (!fo) {
+    if (!fo)
+    {
         perror("fopen html_path");
         free(html);
         return -1;
@@ -175,7 +222,8 @@ int convert_md_to_html(const char *md_path, const char *html_path) {
     return 0;
 }
 
-int inject_and_write(const char *template_path, const char *input_md_path, const char *body_path) {
+int inject_and_write(const char *template_path, const char *input_md_path, const char *body_path)
+{
     char output_path[MAX_PATH];
     snprintf(output_path, sizeof(output_path), "%s/%s", config.output_dir, input_md_path + strlen(config.input_dir));
 
@@ -186,7 +234,8 @@ int inject_and_write(const char *template_path, const char *input_md_path, const
     char dir_path[MAX_PATH];
     snprintf(dir_path, sizeof(dir_path), "%s", output_path);
     char *last_slash = strrchr(dir_path, '/');
-    if (last_slash) {
+    if (last_slash)
+    {
         *last_slash = '\0';
         mkdir_p(dir_path);
     }
@@ -194,18 +243,23 @@ int inject_and_write(const char *template_path, const char *input_md_path, const
     FILE *ft = fopen(template_path, "r");
     FILE *fb = fopen(body_path, "r");
     FILE *fo = fopen(output_path, "w");
-    if (!ft || !fb || !fo) {
+    if (!ft || !fb || !fo)
+    {
         perror("fopen");
         return -1;
     }
 
     char line[MAX_BUFFER];
-    while (fgets(line, sizeof(line), ft)) {
-        if (strstr(line, "{{ content }}")) {
+    while (fgets(line, sizeof(line), ft))
+    {
+        if (strstr(line, "{{ content }}"))
+        {
             char buf[MAX_BUFFER];
             while (fgets(buf, sizeof(buf), fb))
                 fputs(buf, fo);
-        } else {
+        }
+        else
+        {
             fputs(line, fo);
         }
     }
@@ -216,43 +270,76 @@ int inject_and_write(const char *template_path, const char *input_md_path, const
     return 0;
 }
 
-int build_page(const char *md_path) {
+Page build_page(const char *md_path)
+{
+    Page page = {0};
+    strncpy(page.path, md_path, MAX_PATH - 1);
+
     char tmp_html[MAX_PATH] = "/tmp/tmp_page.html";
 
     // template path: same dir as md file or fallback
     char template_path[MAX_PATH];
     snprintf(template_path, sizeof(template_path), "%s", md_path);
     char *last_slash = strrchr(template_path, '/');
-    if (last_slash) {
+    if (last_slash)
+    {
         *(last_slash + 1) = '\0';
         strncat(template_path, "template.html", MAX_PATH - strlen(template_path) - 1);
     }
 
-    if (access(template_path, F_OK) != 0) {
+    if (access(template_path, F_OK) != 0)
+    {
         snprintf(template_path, sizeof(template_path), "%s/%s", config.input_dir, config.template_file);
-        if (access(template_path, F_OK) != 0) {
+        if (access(template_path, F_OK) != 0)
+        {
             fprintf(stderr, "[-] no template found for %s\n", md_path);
-            return -1;
+            return page;
         }
     }
 
     if (convert_md_to_html(md_path, tmp_html) != 0)
-        return -1;
+        return page;
 
     if (inject_and_write(template_path, md_path, tmp_html) != 0)
-        return -1;
+        return page;
+
+    // Set html_path as rooturl/path
+    char rel_path[MAX_PATH];
+    snprintf(rel_path, sizeof(rel_path), "%s", md_path + strlen(config.input_dir));
+    char *dot = strrchr(rel_path, '.');
+    if (dot && strcmp(dot, ".md") == 0)
+        strcpy(dot, ".html");
+
+    // Remove leading slash if present
+    char *rel = rel_path;
+    if (rel[0] == '/')
+        rel++;
+
+    snprintf(page.html_path, MAX_PATH, "%s/%s", config.root_url, rel);
+
+    // Optionally, extract title from md_path filename
+    const char *filename = strrchr(md_path, '/');
+    if (filename)
+        filename++;
+    else
+        filename = md_path;
+    strncpy(page.title, filename, MAX_BUFFER - 1);
 
     printf("[+] built: %s\n", md_path);
-    return 0;
+    printf("    -> %s\n", page.html_path);
+    return page;
 }
 
-void walk_and_build(const char *path) {
+void walk_and_build(const char *path)
+{
     DIR *dir = opendir(path);
-    if (!dir) return;
+    if (!dir)
+        return;
 
     struct dirent *entry;
 
-    while ((entry = readdir(dir)) != NULL) {
+    while ((entry = readdir(dir)) != NULL)
+    {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
 
@@ -260,11 +347,15 @@ void walk_and_build(const char *path) {
         snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
 
         struct stat st;
-        if (stat(fullpath, &st) != 0) continue;
+        if (stat(fullpath, &st) != 0)
+            continue;
 
-        if (S_ISDIR(st.st_mode)) {
+        if (S_ISDIR(st.st_mode))
+        {
             walk_and_build(fullpath);
-        } else if (strstr(entry->d_name, ".md")) {
+        }
+        else if (strstr(entry->d_name, ".md"))
+        {
             build_page(fullpath);
         }
     }
@@ -272,29 +363,31 @@ void walk_and_build(const char *path) {
     closedir(dir);
 }
 
-void banner() {
+void banner()
+{
     printf("\n\033[1;32m");
     printf("\n"
-"\n"
-"  _____ _          ___ ___  ___ \n"
-" |_   _(_)_ _ _  _/ __/ __|/ __|\n"
-"   | | | | ' \\ || \\__ \\__ \\ (_ |\n"
-"   |_| |_|_||_\\_, |___/___/\\___|\n"
-"              |__/              \n"
-"\n"
-"  tinyssg - a brutally minimal static site generator in C\n"
-);
+           "\n"
+           "  _____ _          ___ ___  ___ \n"
+           " |_   _(_)_ _ _  _/ __/ __|/ __|\n"
+           "   | | | | ' \\ || \\__ \\__ \\ (_ |\n"
+           "   |_| |_|_||_\\_, |___/___/\\___|\n"
+           "              |__/              \n"
+           "\n"
+           "  tinyssg - a brutally minimal static site generator in C\n");
     printf("\033[0m\n");
 }
 
-int main(void) {
-    banner();
+int main(void)
+{
 
+    banner();
     printf("[*] tinyssg dry run started.\n");
     printf("[*] reading config file from ... just kidding, configs are bloat.\n");
 
     printf("[*] creating output directory: %s\n", config.output_dir);
-    if (create_directory(config.output_dir) != 0) {
+    if (create_directory(config.output_dir) != 0)
+    {
         fprintf(stderr, "[-] failed to create output dir\n");
         return EXIT_FAILURE;
     }
@@ -305,4 +398,3 @@ int main(void) {
     printf("[+] tinyssg dry run complete.\n");
     return EXIT_SUCCESS;
 }
-
