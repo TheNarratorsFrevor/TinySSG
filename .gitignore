@@ -1,3 +1,7 @@
+# Proj. specific
+output/*
+!output/.gitkeep
+
 
 # Prerequisites
 *.d
